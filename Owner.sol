@@ -5,13 +5,13 @@ contract Paul {
     uint256 public myNumber;
 
     function setNumber(uint256 _num) external {
-        // Using require() to validate input
-        require(_num != 0, "Number cannot be zero");
         
-        // Using assert() to validate internal state
-        assert(myNumber + _num > myNumber);
+        if (_num == 0) {
+            revert("Number cannot be zero");
+        }
+        
+        require(myNumber + _num > myNumber, "Overflow detected");
 
-        // Using revert() to revert the transaction
         if (_num > 100) {
             revert("Number is too large");
         }
