@@ -1,76 +1,88 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-contract SimpleToken {
-    string public name = "SimpleToken";
-    string public symbol = "STK";
-    uint8 public decimals = 18;
+contract AdvancedToken {
+    string public constant name = "AdvancedToken";
+    string public constant symbol = "ATK";
+    uint8 public constant decimals = 18;
     uint256 public totalSupply;
     address public owner;
 
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
     mapping(address => bool) public admins;
+    bool public paused = false;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Mint(address indexed to, uint256 value);
     event Burn(address indexed from, uint256 value);
-    event AdminAdded(address admin);
-    event AdminRemoved(address admin);
+    event AdminAdded(address indexed admin);
+    event AdminRemoved(address indexed admin);
+    event Paused();
+    event Unpaused();
 
     constructor(uint256 _initialSupply) {
         owner = msg.sender;
         admins[owner] = true;
-        mint(owner, _initialSupply);
+        _mint(owner, _initialSupply);
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Caller is not the owner");
+        require(msg.sender == owner, "Not the owner");
         _;
     }
 
     modifier onlyAdmin() {
-        require(admins[msg.sender], "Caller is not an admin");
+        require(admins[msg.sender], "Not an admin");
         _;
     }
 
-    function mint(address _to, uint256 _value) public onlyAdmin {
-        require(_to != address(0), "Cannot mint to zero address");
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
+        _;
+    }
+
+    function _mint(address _to, uint256 _value) internal {
+        require(_to != address(0), "Mint to zero address");
         totalSupply += _value;
         balanceOf[_to] += _value;
         emit Mint(_to, _value);
         emit Transfer(address(0), _to, _value);
     }
 
-    function burn(uint256 _value) public {
-        require(balanceOf[msg.sender] >= _value, "Insufficient balance to burn");
+    function mint(address _to, uint256 _value) external onlyAdmin whenNotPaused {
+        _mint(_to, _value);
+    }
+
+    function burn(uint256 _value) external whenNotPaused {
+        require(balanceOf[msg.sender] >= _value, "Burn amount exceeds balance");
         totalSupply -= _value;
         balanceOf[msg.sender] -= _value;
         emit Burn(msg.sender, _value);
         emit Transfer(msg.sender, address(0), _value);
     }
 
-    function transfer(address _to, uint256 _value) public returns (bool) {
-        require(_to != address(0), "Cannot transfer to zero address");
-        require(balanceOf[msg.sender] >= _value, "Insufficient balance");
+    function transfer(address _to, uint256 _value) external whenNotPaused returns (bool) {
+        require(_to != address(0), "Transfer to zero address");
+        require(balanceOf[msg.sender] >= _value, "Transfer amount exceeds balance");
         balanceOf[msg.sender] -= _value;
         balanceOf[_to] += _value;
         emit Transfer(msg.sender, _to, _value);
         return true;
     }
 
-    function approve(address _spender, uint256 _value) public returns (bool) {
+    function approve(address _spender, uint256 _value) external whenNotPaused returns (bool) {
         allowance[msg.sender][_spender] = _value;
         emit Approval(msg.sender, _spender, _value);
         return true;
     }
 
-    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
-        require(_from != address(0), "Cannot transfer from zero address");
-        require(_to != address(0), "Cannot transfer to zero address");
-        require(balanceOf[_from] >= _value, "Insufficient balance");
-        require(allowance[_from][msg.sender] >= _value, "Allowance exceeded");
+    function transferFrom(address _from, address _to, uint256 _value) external whenNotPaused returns (bool) {
+        require(_from != address(0), "Transfer from zero address");
+        require(_to != address(0), "Transfer to zero address");
+        require(balanceOf[_from] >= _value, "Transfer amount exceeds balance");
+        require(allowance[_from][msg.sender] >= _value, "Transfer amount exceeds allowance");
         balanceOf[_from] -= _value;
         balanceOf[_to] += _value;
         allowance[_from][msg.sender] -= _value;
@@ -86,5 +98,15 @@ contract SimpleToken {
     function removeAdmin(address _admin) external onlyOwner {
         admins[_admin] = false;
         emit AdminRemoved(_admin);
+    }
+
+    function pause() external onlyOwner {
+        paused = true;
+        emit Paused();
+    }
+
+    function unpause() external onlyOwner {
+        paused = false;
+        emit Unpaused();
     }
 }
